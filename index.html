@@ -7,6 +7,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- SheetJS for Excel support -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- Chart.js for Visual Graphs -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
@@ -68,8 +70,8 @@
 
         /* Modal Styles */
         .modal-overlay {
-            background-color: rgba(0, 0, 0, 0.85);
-            backdrop-filter: blur(5px);
+            background-color: rgba(0, 0, 0, 0.9);
+            backdrop-filter: blur(8px);
         }
 
         /* Tooltip Styles */
@@ -250,16 +252,6 @@
                 <!-- 3. Less Deductions -->
                 <div class="pl-5 border-l-2 border-gray-800 space-y-3">
                     <div class="flex justify-between items-center text-sm text-orange-400">
-                        <span class="flex items-center">
-                            - Refunds
-                            <div class="tooltip-trigger ml-2">
-                                <i class="fa-solid fa-circle-info text-xs opacity-50"></i>
-                                <div class="tooltip-content">Manual adjustment for refunds processed.</div>
-                            </div>
-                        </span>
-                        <span class="font-mono font-medium" id="disp-refunds">R 0.00</span>
-                    </div>
-                    <div class="flex justify-between items-center text-sm text-orange-400">
                          <span class="flex items-center">
                             - Discounts
                             <div class="tooltip-trigger ml-2">
@@ -305,12 +297,13 @@
                     <span class="font-mono" id="disp-cost-sales">R 0.00</span>
                 </div>
 
-                <!-- 6. Final Gross Profit -->
-                <div class="mt-6 pt-8 border-t border-gray-800">
-                    <div class="flex flex-col md:flex-row items-center justify-between p-8 bg-[#1a1a1a] rounded-xl border border-gray-800 relative overflow-hidden">
+                <!-- 6. VISUAL BREAKDOWN -->
+                <div class="mt-8 pt-8 border-t border-gray-800 grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                    <!-- Profit Card -->
+                    <div class="flex flex-col justify-center p-8 bg-[#1a1a1a] rounded-xl border border-gray-800 relative overflow-hidden h-full">
                         <div class="absolute left-0 top-0 h-full w-2 bg-[#00AEEF]"></div>
                         
-                        <div>
+                        <div class="mb-4">
                             <div class="flex items-center mb-1">
                                 <span class="text-gray-400 text-xs font-bold uppercase tracking-widest block">Gross Profit</span>
                                 <div class="tooltip-trigger ml-2">
@@ -321,12 +314,19 @@
                             <span id="disp-gross-profit" class="text-4xl md:text-5xl font-extrabold text-white tracking-tight">R 0.00</span>
                         </div>
                         
-                        <div class="mt-4 md:mt-0 flex flex-col items-end">
+                        <div class="flex flex-col">
                             <span class="text-gray-500 text-xs font-bold uppercase tracking-widest mb-1">GP Margin</span>
                             <div class="flex items-baseline">
                                 <span id="disp-gp-percent" class="text-3xl font-bold text-[#00AEEF]">0.0</span>
                                 <span class="text-[#00AEEF] ml-1 text-lg font-bold">%</span>
                             </div>
+                        </div>
+                    </div>
+
+                    <!-- Visual Graph -->
+                    <div class="p-4 bg-[#1a1a1a] rounded-xl border border-gray-800 flex justify-center items-center h-full">
+                        <div style="height: 200px; width: 100%;">
+                            <canvas id="profitChart"></canvas>
                         </div>
                     </div>
                 </div>
@@ -365,14 +365,6 @@
                 </div>
 
                 <div class="grid grid-cols-2 gap-6">
-                    <!-- Refunds -->
-                    <div>
-                        <label class="block text-lg font-bold text-white uppercase tracking-wide mb-3">Refunds</label>
-                        <div class="relative">
-                            <span class="absolute left-4 top-4 text-gray-500 font-bold text-lg">R</span>
-                            <input type="number" id="refunds" step="0.01" class="input-dark w-full pl-10 pr-4 py-4 rounded-xl text-xl font-bold" placeholder="0.00">
-                        </div>
-                    </div>
                     <!-- Discounts -->
                     <div>
                         <label class="block text-lg font-bold text-white uppercase tracking-wide mb-3">Discounts</label>
@@ -381,14 +373,13 @@
                             <input type="number" id="discounts" step="0.01" class="input-dark w-full pl-10 pr-4 py-4 rounded-xl text-xl font-bold" placeholder="0.00">
                         </div>
                     </div>
-                </div>
-
-                <!-- Payments -->
-                <div>
-                    <label class="block text-lg font-bold text-white uppercase tracking-wide mb-3">Net Excl. Payments</label>
-                    <div class="relative">
-                        <span class="absolute left-4 top-4 text-gray-500 font-bold text-lg">R</span>
-                        <input type="number" id="net-excl-payments" step="0.01" class="input-dark w-full pl-10 pr-4 py-4 rounded-xl text-xl font-bold" placeholder="0.00">
+                    <!-- Payments -->
+                    <div>
+                        <label class="block text-lg font-bold text-white uppercase tracking-wide mb-3">Net Excl. Payments</label>
+                        <div class="relative">
+                            <span class="absolute left-4 top-4 text-gray-500 font-bold text-lg">R</span>
+                            <input type="number" id="net-excl-payments" step="0.01" class="input-dark w-full pl-10 pr-4 py-4 rounded-xl text-xl font-bold" placeholder="0.00">
+                        </div>
                     </div>
                 </div>
 
@@ -411,7 +402,7 @@
                 <h3 class="text-3xl font-extrabold text-white">One Last Check</h3>
                 
                 <p class="text-gray-300 text-lg leading-relaxed">
-                    Have you double-checked that all <strong>Refunds</strong>, <strong>Discounts</strong>, and <strong>Net Exclusive Payments</strong> have been entered correctly?
+                    Have you double-checked that all <strong>Discounts</strong> and <strong>Net Exclusive Payments</strong> have been entered correctly?
                 </p>
                 
                 <div class="bg-[#111] p-4 rounded-lg text-sm text-gray-500 mt-4">
@@ -431,6 +422,64 @@
         </div>
     </div>
 
+    <!-- TUTORIAL MODAL (On Load) -->
+    <div id="tutorial-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center modal-overlay p-4">
+        <div class="bg-[#141414] rounded-3xl w-full max-w-2xl border border-gray-800 shadow-2xl transform transition-all overflow-hidden flex flex-col max-h-[90vh]">
+            
+            <!-- Tutorial Prompt State -->
+            <div id="tutorial-prompt" class="p-10 text-center space-y-8">
+                <div class="flex justify-center mb-4">
+                    <div class="bg-[#00AEEF]/20 p-6 rounded-full">
+                        <i class="fa-solid fa-play text-5xl text-[#00AEEF] ml-1"></i>
+                    </div>
+                </div>
+                
+                <h2 class="text-3xl font-black text-white uppercase tracking-wide">Welcome!</h2>
+                <p class="text-gray-300 text-lg">Would you like a quick tutorial on how to use this Profit Calculator?</p>
+                
+                <div class="grid grid-cols-1 gap-4 pt-4">
+                    <button onclick="showVideo()" class="yoco-blue-btn w-full py-5 rounded-xl text-xl shadow-lg shadow-blue-500/30">
+                        Yes, Watch Tutorial
+                    </button>
+                    <button onclick="closeTutorial()" class="text-gray-400 hover:text-white py-3 font-medium text-lg">
+                        No, I'm ready to start
+                    </button>
+                </div>
+            </div>
+
+            <!-- Tutorial Video State -->
+            <div id="tutorial-video" class="hidden flex-1 flex flex-col h-full">
+                <div class="p-4 border-b border-gray-800 bg-[#1a1a1a] flex justify-between items-center">
+                    <h3 class="text-lg font-bold text-white">How it works</h3>
+                    <button onclick="closeTutorial()" class="text-gray-500 hover:text-white">
+                        <i class="fa-solid fa-xmark text-2xl"></i>
+                    </button>
+                </div>
+                
+                <div class="flex-1 bg-black relative" style="min-height: 400px;">
+                    <iframe 
+                        src="https://drive.google.com/file/d/1zmqDq3vDANwl97Bl4fQGK3JwUZjjFj5i/preview" 
+                        class="absolute inset-0 w-full h-full" 
+                        allow="autoplay; fullscreen; picture-in-picture"
+                        sandbox="allow-forms allow-scripts allow-same-origin allow-popups allow-presentation"
+                        frameborder="0">
+                    </iframe>
+                </div>
+
+                <div class="p-6 bg-[#1a1a1a] text-center border-t border-gray-800">
+                    <p class="text-xs text-gray-500 mb-2">If video shows a black screen, Google Drive is blocking the preview.</p>
+                    <a href="https://drive.google.com/file/d/1zmqDq3vDANwl97Bl4fQGK3JwUZjjFj5i/view?usp=drive_link" target="_blank" class="btn-outline w-full py-4 rounded-xl text-lg block mb-4 border-[#00AEEF] text-[#00AEEF] hover:bg-[#00AEEF] hover:text-black">
+                        <i class="fa-brands fa-google-drive mr-2"></i> Watch Tutorial on Drive
+                    </a>
+                    <button onclick="closeTutorial()" class="text-gray-500 hover:text-white text-sm">
+                        Close Tutorial
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
     <script>
         // State
         let fileDataRows = [];
@@ -439,6 +488,7 @@
         let totalCostOfSales = 0;
         let fileName = "";
         let dateRangeText = "Unknown";
+        let myChart = null; // Chart instance
 
         // Input Elements
         const inputs = {
@@ -446,7 +496,6 @@
             salesCol: document.getElementById('column-select-sales'),
             costCol: document.getElementById('column-select-cost'),
             taxRate: document.getElementById('tax-rate'),
-            refunds: document.getElementById('refunds'),
             discounts: document.getElementById('discounts'),
             payments: document.getElementById('net-excl-payments'),
             modalSubmitBtn: document.getElementById('modal-submit-btn'),
@@ -465,7 +514,10 @@
             modalForm: document.getElementById('modal-form-view'),
             modalConfirm: document.getElementById('modal-confirm-view'),
             filenameDisplay: document.getElementById('report-filename'),
-            dateRangeDisplay: document.getElementById('report-daterange')
+            dateRangeDisplay: document.getElementById('report-daterange'),
+            tutorialModal: document.getElementById('tutorial-modal'),
+            tutorialPrompt: document.getElementById('tutorial-prompt'),
+            tutorialVideo: document.getElementById('tutorial-video')
         };
 
         // Display Elements
@@ -473,7 +525,6 @@
             salesIncl: document.getElementById('disp-sales-incl'),
             vat: document.getElementById('disp-vat'),
             taxRate: document.getElementById('disp-tax-rate'),
-            refunds: document.getElementById('disp-refunds'),
             discounts: document.getElementById('disp-discounts'),
             payments: document.getElementById('disp-payments'),
             salesExcl: document.getElementById('disp-sales-excl'),
@@ -481,6 +532,21 @@
             grossProfit: document.getElementById('disp-gross-profit'),
             gpPercent: document.getElementById('disp-gp-percent')
         };
+
+        // --- Tutorial Logic ---
+        window.addEventListener('load', () => {
+            // Show tutorial modal on load
+            sections.tutorialModal.classList.remove('hidden');
+        });
+
+        function showVideo() {
+            sections.tutorialPrompt.classList.add('hidden');
+            sections.tutorialVideo.classList.remove('hidden');
+        }
+
+        function closeTutorial() {
+            sections.tutorialModal.classList.add('hidden');
+        }
 
         // --- Event Listeners ---
         sections.dropZone.addEventListener('click', () => inputs.file.click());
@@ -702,12 +768,12 @@
 
         function calculateFinalResults() {
             const rate = parseFloat(inputs.taxRate.value) || 0;
-            const refunds = parseFloat(inputs.refunds.value) || 0;
             const discounts = parseFloat(inputs.discounts.value) || 0;
             const payments = parseFloat(inputs.payments.value) || 0;
 
             const taxAmount = totalSalesIncl - (totalSalesIncl / (1 + (rate / 100)));
-            const netSalesExcl = totalSalesIncl - taxAmount - refunds - discounts - payments;
+            // Refunds are completely excluded from calculation per user request
+            const netSalesExcl = totalSalesIncl - taxAmount - discounts - payments;
             const grossProfit = netSalesExcl - totalCostOfSales;
             let gpPercent = 0;
             if (netSalesExcl !== 0) gpPercent = (grossProfit / netSalesExcl) * 100;
@@ -717,7 +783,6 @@
             display.salesIncl.textContent = fmt(totalSalesIncl);
             display.taxRate.textContent = rate;
             display.vat.textContent = fmt(taxAmount);
-            display.refunds.textContent = fmt(refunds);
             display.discounts.textContent = fmt(discounts);
             display.payments.textContent = fmt(payments);
             display.salesExcl.textContent = fmt(netSalesExcl);
@@ -739,15 +804,54 @@
                 gpPercentElement.classList.add('text-[#00AEEF]');
                 gpPercentElement.classList.remove('text-red-500');
             }
+
+            renderChart(grossProfit, totalCostOfSales);
+        }
+
+        function renderChart(profit, cost) {
+            const ctx = document.getElementById('profitChart').getContext('2d');
+            
+            // Destroy existing chart if it exists
+            if (myChart) {
+                myChart.destroy();
+            }
+
+            myChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Gross Profit', 'Cost of Sales'],
+                    datasets: [{
+                        data: [profit > 0 ? profit : 0, cost],
+                        backgroundColor: ['#00AEEF', '#333333'],
+                        borderColor: ['#00AEEF', '#333333'],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { color: '#ffffff', font: { family: 'Inter' } }
+                        },
+                        title: {
+                            display: true,
+                            text: 'Nett Sales Breakdown',
+                            color: '#888',
+                            font: { size: 12 }
+                        }
+                    }
+                }
+            });
         }
 
         function exportToExcel() {
             const rate = parseFloat(inputs.taxRate.value) || 0;
-            const refunds = parseFloat(inputs.refunds.value) || 0;
             const discounts = parseFloat(inputs.discounts.value) || 0;
             const payments = parseFloat(inputs.payments.value) || 0;
             const taxAmount = totalSalesIncl - (totalSalesIncl / (1 + (rate / 100)));
-            const netSalesExcl = totalSalesIncl - taxAmount - refunds - discounts - payments;
+            const netSalesExcl = totalSalesIncl - taxAmount - discounts - payments;
             const grossProfit = netSalesExcl - totalCostOfSales;
             let gpPercent = 0;
             if (netSalesExcl !== 0) gpPercent = (grossProfit / netSalesExcl) * 100;
@@ -762,7 +866,6 @@
                 ["Nett Sales (Incl. Tax)", totalSalesIncl],
                 ["VAT Rate", rate + "%"],
                 ["VAT Amount", taxAmount],
-                ["Refunds", refunds],
                 ["Discounts", discounts],
                 ["Net Excl. Payments", payments],
                 ["Nett Sales (Excl. Tax)", netSalesExcl],
@@ -775,35 +878,9 @@
             const wscols = [{wch: 25}, {wch: 35}];
             ws['!cols'] = wscols;
 
-            // Sheet 2: Visual Data (Graph Ready)
-            const graphData = [
-                ["Category", "Amount (ZAR)", "Visual Scale (Text)"],
-                ["Nett Sales (Excl. Tax)", netSalesExcl, getBar(netSalesExcl, totalSalesIncl)],
-                ["Cost of Sales", totalCostOfSales, getBar(totalCostOfSales, totalSalesIncl)],
-                ["Gross Profit", grossProfit, getBar(grossProfit, totalSalesIncl)],
-                ["VAT", taxAmount, getBar(taxAmount, totalSalesIncl)],
-                ["Refunds", refunds, getBar(refunds, totalSalesIncl)]
-            ];
-            
-            const wsGraph = XLSX.utils.aoa_to_sheet(graphData);
-            const wsGraphCols = [{wch: 25}, {wch: 15}, {wch: 50}];
-            wsGraph['!cols'] = wsGraphCols;
-
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, "Profit Report");
-            XLSX.utils.book_append_sheet(wb, wsGraph, "Visual Breakdown");
-
             XLSX.writeFile(wb, "Yoco_Profit_Report.xlsx");
-        }
-
-        // Helper to generate simple ascii bar charts
-        function getBar(val, max) {
-            if(!max || max === 0) return "";
-            // Use 50 chars as max width
-            const width = 50;
-            // Prevent negative bars from breaking repeat
-            const len = Math.max(0, Math.floor((val / max) * width));
-            return "█".repeat(len);
         }
     </script>
 </body>
