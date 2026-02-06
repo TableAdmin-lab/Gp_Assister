@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Restaurant Profit Calculator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- SheetJS for Excel support -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #0d0d0d; color: #ffffff; }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #1a1a1a; }
+        ::-webkit-scrollbar-thumb { background: #333; rounded: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #444; }
+
+        .glass-panel {
+            background: rgba(30, 30, 30, 0.6);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .input-dark {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            color: white;
+            transition: all 0.2s;
+        }
+        .input-dark:focus {
+            border-color: #00AEEF;
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(0, 174, 239, 0.2);
+        }
+
+        .yoco-blue-btn {
+            background-color: #00AEEF;
+            color: #000;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            transition: all 0.2s;
+        }
+        .yoco-blue-btn:hover {
+            background-color: #33c5ff;
+            transform: translateY(-1px);
+        }
+
+        .btn-outline {
+            background-color: transparent;
+            border: 1px solid #333;
+            color: #ccc;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        .btn-outline:hover {
+            border-color: #fff;
+            color: #fff;
+            background-color: rgba(255,255,255,0.05);
+        }
+        
+        .drag-active { border-color: #00AEEF !important; background-color: rgba(0, 174, 239, 0.1) !important; }
+        .fade-in { animation: fadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Modal Styles */
+        .modal-overlay {
+            background-color: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(5px);
+        }
+
+        /* Tooltip Styles */
+        .tooltip-trigger {
+            position: relative;
+            cursor: pointer;
+            color: #555;
+            transition: color 0.2s;
+        }
+        .tooltip-trigger:hover {
+            color: #00AEEF;
+        }
+        .tooltip-content {
+            visibility: hidden;
+            width: 220px;
+            background-color: #222;
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 8px;
+            position: absolute;
+            z-index: 50;
+            bottom: 125%; /* Position above */
+            left: 50%;
+            margin-left: -110px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            border: 1px solid #444;
+            font-size: 0.75rem;
+            font-weight: 400;
+            pointer-events: none;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+        }
+        .tooltip-content::after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: #222 transparent transparent transparent;
+        }
+        .tooltip-trigger:hover .tooltip-content {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        /* Error state */
+        .border-red-500 { border-color: #ef4444 !important; }
+        .text-red-500 { color: #ef4444 !important; }
+    </style>
+</head>
+<body class="min-h-screen p-4 md:p-8">
+
+    <div class="max-w-4xl mx-auto">
+        <!-- Header -->
+        <header class="mb-10 flex flex-col md:flex-row justify-between items-start md:items-center border-b border-gray-800 pb-6">
+            <div>
+                <h1 class="text-4xl font-extrabold tracking-tight text-white mb-2">Revolutionise your <span class="text-[#00AEEF]">profit.</span></h1>
+                <p class="text-gray-400 font-medium">Import your sales data to visualise your financial waterfall.</p>
+            </div>
+            <button onclick="window.location.reload()" class="mt-4 md:mt-0 text-sm font-medium text-gray-500 hover:text-[#00AEEF] transition flex items-center gap-2">
+                <i class="fa-solid fa-rotate-right"></i> Reset Tool
+            </button>
+        </header>
+
+        <!-- Step 1: Upload & Mapping -->
+        <div id="step-1" class="glass-panel rounded-2xl overflow-hidden mb-8">
+            <div class="p-6 border-b border-gray-800 bg-[#141414]">
+                <h2 class="font-bold text-lg flex items-center text-white">
+                    <span class="bg-[#00AEEF] text-black text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center mr-3">1</span>
+                    Import Data Source
+                </h2>
+            </div>
+            
+            <div class="p-8">
+                <!-- Drop Zone -->
+                <div id="drop-zone" class="border-2 border-dashed border-gray-700 rounded-xl p-10 text-center transition-all cursor-pointer hover:border-gray-500 hover:bg-[#1a1a1a] group">
+                    <input type="file" id="file-input" accept=".csv, .xlsx, .xls" class="hidden">
+                    <div id="drop-content" class="flex flex-col items-center justify-center">
+                        <div class="bg-gray-800 p-4 rounded-full mb-4 group-hover:bg-gray-700 transition">
+                            <i class="fa-solid fa-cloud-arrow-up text-3xl text-[#00AEEF]"></i>
+                        </div>
+                        <p class="text-xl font-bold text-white mb-1">Upload Sales Report</p>
+                        <p class="text-sm text-gray-400">Supports .xlsx, .xls, and .csv</p>
+                    </div>
+                </div>
+                
+                <!-- Error Message Container -->
+                <div id="error-message" class="hidden mt-6 p-4 bg-red-500/10 border border-red-500/50 rounded-lg text-red-400 text-center text-sm font-medium animate-pulse">
+                    <i class="fa-solid fa-triangle-exclamation mr-2"></i>
+                    <span id="error-text">Invalid File</span>
+                </div>
+
+                <!-- Column Selectors (Hidden for automatic flow, but kept in DOM for logic) -->
+                <div id="column-selector-container" class="hidden mt-8 grid grid-cols-1 md:grid-cols-2 gap-6 fade-in">
+                    
+                    <!-- Sales Column -->
+                    <div class="p-5 bg-[#1a1a1a] border border-gray-800 rounded-xl opacity-50 pointer-events-none">
+                        <div class="flex items-center justify-between mb-3">
+                            <label class="block text-sm font-bold text-white">
+                                Nett Sales (Incl. Tax)
+                            </label>
+                            <span class="text-xs text-[#00AEEF] bg-[#00AEEF]/10 px-2 py-0.5 rounded" id="auto-match-sales" style="display:none;">Auto-matched</span>
+                        </div>
+                        <select id="column-select-sales" class="w-full p-3 bg-black border border-gray-700 rounded-lg text-sm text-gray-300 focus:border-[#00AEEF] focus:ring-1 focus:ring-[#00AEEF] outline-none">
+                            <option value="">-- Select Column --</option>
+                        </select>
+                    </div>
+
+                    <!-- Cost Column -->
+                    <div class="p-5 bg-[#1a1a1a] border border-gray-800 rounded-xl opacity-50 pointer-events-none">
+                        <div class="flex items-center justify-between mb-3">
+                            <label class="block text-sm font-bold text-white">
+                                Sales Costs
+                            </label>
+                            <span class="text-xs text-[#00AEEF] bg-[#00AEEF]/10 px-2 py-0.5 rounded" id="auto-match-cost" style="display:none;">Auto-matched</span>
+                        </div>
+                        <select id="column-select-cost" class="w-full p-3 bg-black border border-gray-700 rounded-lg text-sm text-gray-300 focus:border-[#00AEEF] focus:ring-1 focus:ring-[#00AEEF] outline-none">
+                            <option value="">-- Select Column --</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 2: Results -->
+        <div id="results-section" class="hidden glass-panel rounded-2xl overflow-hidden flex flex-col relative fade-in mb-10">
+            <!-- Metadata Header for Report -->
+            <div class="p-4 bg-[#111] border-b border-gray-800 text-xs text-gray-500 flex justify-between items-center">
+                <span>File: <span id="report-filename" class="text-gray-300"></span></span>
+                <span>Date Range: <span id="report-daterange" class="text-[#00AEEF] font-bold">Unknown</span></span>
+            </div>
+
+            <div class="p-6 bg-[#141414] border-b border-gray-800 flex justify-between items-center z-10">
+                <h2 class="font-bold text-xl flex items-center text-white">
+                    <span class="bg-[#00AEEF] text-black text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center mr-3">2</span>
+                    Financial Breakdown
+                </h2>
+                <button onclick="openAdjustments()" class="text-sm font-medium text-[#00AEEF] hover:text-white transition flex items-center bg-[#00AEEF]/10 px-3 py-1.5 rounded-lg">
+                    <i class="fa-solid fa-pen mr-2"></i> Edit Adjustments
+                </button>
+            </div>
+            
+            <!-- PRINTABLE CONTENT AREA -->
+            <div id="printable-area" class="p-8 flex-1 flex flex-col justify-center space-y-6 z-10 bg-[#0d0d0d]">
+                
+                <!-- Decor element -->
+                <div class="absolute top-28 right-10 opacity-10 pointer-events-none">
+                        <i class="fa-solid fa-cash-register text-9xl text-white"></i>
+                </div>
+
+                <!-- 1. Gross Sales (Incl Tax) -->
+                <div class="flex justify-between items-center group border-b border-gray-800 pb-4">
+                    <div class="flex items-center">
+                        <span class="text-gray-300 font-semibold text-lg">Nett Sales (Incl. Tax)</span>
+                        <div class="tooltip-trigger ml-2">
+                            <i class="fa-solid fa-circle-info text-sm"></i>
+                            <div class="tooltip-content">Total sales imported from your column selection (including VAT).</div>
+                        </div>
+                    </div>
+                    <span class="font-mono font-bold text-2xl text-white" id="disp-sales-incl">R 0.00</span>
+                </div>
+
+                <!-- 2. Less VAT -->
+                <div class="flex justify-between items-center text-sm text-red-400 font-medium">
+                    <div class="flex items-center">
+                        <span class="flex items-center"><i class="fa-solid fa-minus w-3 mr-2 opacity-50"></i> VAT (<span id="disp-tax-rate">15</span>%)</span>
+                        <div class="tooltip-trigger ml-2">
+                            <i class="fa-solid fa-circle-info text-xs"></i>
+                            <div class="tooltip-content">Calculated VAT based on the inclusive total using the rate provided.</div>
+                        </div>
+                    </div>
+                    <span class="font-mono" id="disp-vat">R 0.00</span>
+                </div>
+
+                <!-- 3. Less Deductions -->
+                <div class="pl-5 border-l-2 border-gray-800 space-y-3">
+                    <div class="flex justify-between items-center text-sm text-orange-400">
+                        <span class="flex items-center">
+                            - Refunds
+                            <div class="tooltip-trigger ml-2">
+                                <i class="fa-solid fa-circle-info text-xs opacity-50"></i>
+                                <div class="tooltip-content">Manual adjustment for refunds processed.</div>
+                            </div>
+                        </span>
+                        <span class="font-mono font-medium" id="disp-refunds">R 0.00</span>
+                    </div>
+                    <div class="flex justify-between items-center text-sm text-orange-400">
+                         <span class="flex items-center">
+                            - Discounts
+                            <div class="tooltip-trigger ml-2">
+                                <i class="fa-solid fa-circle-info text-xs opacity-50"></i>
+                                <div class="tooltip-content">Total value of discounts given.</div>
+                            </div>
+                        </span>
+                        <span class="font-mono font-medium" id="disp-discounts">R 0.00</span>
+                    </div>
+                    <div class="flex justify-between items-center text-sm text-orange-400">
+                         <span class="flex items-center">
+                            - Net Excl. Payments
+                            <div class="tooltip-trigger ml-2">
+                                <i class="fa-solid fa-circle-info text-xs opacity-50"></i>
+                                <div class="tooltip-content">Payments that do not attract VAT/Revenue (e.g., Tips, Service Charge).</div>
+                            </div>
+                        </span>
+                        <span class="font-mono font-medium" id="disp-payments">R 0.00</span>
+                    </div>
+                </div>
+
+                <!-- 4. Result: Net Sales Excl Tax -->
+                <div class="py-5 border-t border-dashed border-gray-600 flex justify-between items-center">
+                    <div class="flex items-center">
+                        <span class="text-white font-bold text-xl">Nett Sales (Excl. Tax)</span>
+                        <div class="tooltip-trigger ml-2">
+                            <i class="fa-solid fa-circle-info text-sm text-gray-500"></i>
+                            <div class="tooltip-content">Real revenue after VAT and all adjustments are removed.</div>
+                        </div>
+                    </div>
+                    <span class="font-mono font-bold text-2xl text-white" id="disp-sales-excl">R 0.00</span>
+                </div>
+
+                <!-- 5. Less Cost of Sales -->
+                <div class="flex justify-between items-center text-red-500 font-bold text-lg">
+                    <div class="flex items-center">
+                         <span class="flex items-center"><i class="fa-solid fa-arrow-down w-4 mr-2"></i> Cost of Sales</span>
+                         <div class="tooltip-trigger ml-2">
+                            <i class="fa-solid fa-circle-info text-sm opacity-50"></i>
+                            <div class="tooltip-content">Total cost from imported 'Sales Costs' column.</div>
+                        </div>
+                    </div>
+                    <span class="font-mono" id="disp-cost-sales">R 0.00</span>
+                </div>
+
+                <!-- 6. Final Gross Profit -->
+                <div class="mt-6 pt-8 border-t border-gray-800">
+                    <div class="flex flex-col md:flex-row items-center justify-between p-8 bg-[#1a1a1a] rounded-xl border border-gray-800 relative overflow-hidden">
+                        <div class="absolute left-0 top-0 h-full w-2 bg-[#00AEEF]"></div>
+                        
+                        <div>
+                            <div class="flex items-center mb-1">
+                                <span class="text-gray-400 text-xs font-bold uppercase tracking-widest block">Gross Profit</span>
+                                <div class="tooltip-trigger ml-2">
+                                    <i class="fa-solid fa-circle-info text-xs text-gray-600"></i>
+                                    <div class="tooltip-content">Final Profit = Nett Sales (Excl) - Cost of Sales.</div>
+                                </div>
+                            </div>
+                            <span id="disp-gross-profit" class="text-4xl md:text-5xl font-extrabold text-white tracking-tight">R 0.00</span>
+                        </div>
+                        
+                        <div class="mt-4 md:mt-0 flex flex-col items-end">
+                            <span class="text-gray-500 text-xs font-bold uppercase tracking-widest mb-1">GP Margin</span>
+                            <div class="flex items-baseline">
+                                <span id="disp-gp-percent" class="text-3xl font-bold text-[#00AEEF]">0.0</span>
+                                <span class="text-[#00AEEF] ml-1 text-lg font-bold">%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+            
+            <!-- Actions Button -->
+            <div class="p-6 bg-[#141414] border-t border-gray-800 grid grid-cols-1 md:grid-cols-2 gap-4">
+                 <button onclick="exportToExcel()" class="btn-outline w-full py-4 rounded-lg flex items-center justify-center hover:text-white hover:border-white col-span-2">
+                    <i class="fa-solid fa-file-excel mr-2 text-green-500"></i> Download Excel Report
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ADJUSTMENTS MODAL -->
+    <div id="adjustments-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center modal-overlay p-4">
+        <div class="bg-[#141414] rounded-3xl w-full max-w-xl border border-gray-800 shadow-2xl transform transition-all overflow-hidden">
+            <!-- Modal Header -->
+            <div class="p-6 border-b border-gray-800 bg-[#1a1a1a] flex justify-between items-center">
+                <h3 class="text-2xl font-black text-white uppercase tracking-wide">Enter Adjustments</h3>
+                <button onclick="document.getElementById('adjustments-modal').classList.add('hidden')" class="text-gray-500 hover:text-white">
+                    <i class="fa-solid fa-xmark text-2xl"></i>
+                </button>
+            </div>
+
+            <!-- Modal Body (Form) -->
+            <div id="modal-form-view" class="p-8 space-y-8">
+                <p class="text-gray-400 text-base border-l-4 border-[#00AEEF] pl-4 font-medium">Please enter any values from your sales dashboard to calculate accurately.</p>
+
+                <!-- Tax -->
+                <div>
+                    <label class="block text-lg font-bold text-white uppercase tracking-wide mb-3">VAT Rate (%)</label>
+                    <input type="number" id="tax-rate" value="15" class="input-dark w-full p-4 rounded-xl font-bold text-2xl text-center focus:ring-4 focus:ring-[#00AEEF]/20">
+                </div>
+
+                <div class="grid grid-cols-2 gap-6">
+                    <!-- Refunds -->
+                    <div>
+                        <label class="block text-lg font-bold text-white uppercase tracking-wide mb-3">Refunds</label>
+                        <div class="relative">
+                            <span class="absolute left-4 top-4 text-gray-500 font-bold text-lg">R</span>
+                            <input type="number" id="refunds" step="0.01" class="input-dark w-full pl-10 pr-4 py-4 rounded-xl text-xl font-bold" placeholder="0.00">
+                        </div>
+                    </div>
+                    <!-- Discounts -->
+                    <div>
+                        <label class="block text-lg font-bold text-white uppercase tracking-wide mb-3">Discounts</label>
+                        <div class="relative">
+                            <span class="absolute left-4 top-4 text-gray-500 font-bold text-lg">R</span>
+                            <input type="number" id="discounts" step="0.01" class="input-dark w-full pl-10 pr-4 py-4 rounded-xl text-xl font-bold" placeholder="0.00">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Payments -->
+                <div>
+                    <label class="block text-lg font-bold text-white uppercase tracking-wide mb-3">Net Excl. Payments</label>
+                    <div class="relative">
+                        <span class="absolute left-4 top-4 text-gray-500 font-bold text-lg">R</span>
+                        <input type="number" id="net-excl-payments" step="0.01" class="input-dark w-full pl-10 pr-4 py-4 rounded-xl text-xl font-bold" placeholder="0.00">
+                    </div>
+                </div>
+
+                 <!-- Modal Footer Form -->
+                <div class="pt-6">
+                    <button onclick="showConfirmation()" class="yoco-blue-btn w-full py-5 rounded-xl text-xl shadow-lg shadow-blue-500/30">
+                        Review & Calculate
+                    </button>
+                </div>
+            </div>
+
+            <!-- Modal Body (Confirmation) -->
+            <div id="modal-confirm-view" class="hidden p-8 space-y-6 text-center">
+                <div class="mb-6 flex justify-center">
+                    <div class="bg-yellow-500/20 p-6 rounded-full">
+                        <i class="fa-solid fa-clipboard-check text-5xl text-yellow-500"></i>
+                    </div>
+                </div>
+                
+                <h3 class="text-3xl font-extrabold text-white">One Last Check</h3>
+                
+                <p class="text-gray-300 text-lg leading-relaxed">
+                    Have you double-checked that all <strong>Refunds</strong>, <strong>Discounts</strong>, and <strong>Net Exclusive Payments</strong> have been entered correctly?
+                </p>
+                
+                <div class="bg-[#111] p-4 rounded-lg text-sm text-gray-500 mt-4">
+                    Missing these values will result in an incorrect Gross Profit calculation.
+                </div>
+
+                <div class="grid grid-cols-1 gap-4 pt-6">
+                    <button id="modal-submit-btn" class="yoco-blue-btn w-full py-5 rounded-xl text-xl shadow-lg">
+                        Yes, I've Checked Everything
+                    </button>
+                    <button onclick="hideConfirmation()" class="text-gray-400 hover:text-white py-3 font-medium text-lg">
+                        Go Back & Edit
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // State
+        let fileDataRows = [];
+        let headers = [];
+        let totalSalesIncl = 0;
+        let totalCostOfSales = 0;
+        let fileName = "";
+        let dateRangeText = "Unknown";
+
+        // Input Elements
+        const inputs = {
+            file: document.getElementById('file-input'),
+            salesCol: document.getElementById('column-select-sales'),
+            costCol: document.getElementById('column-select-cost'),
+            taxRate: document.getElementById('tax-rate'),
+            refunds: document.getElementById('refunds'),
+            discounts: document.getElementById('discounts'),
+            payments: document.getElementById('net-excl-payments'),
+            modalSubmitBtn: document.getElementById('modal-submit-btn'),
+            errorMessage: document.getElementById('error-message'),
+            errorText: document.getElementById('error-text'),
+            dropContent: document.getElementById('drop-content'),
+            dropZone: document.getElementById('drop-zone')
+        };
+
+        // DOM Sections
+        const sections = {
+            dropZone: document.getElementById('drop-zone'),
+            colSelector: document.getElementById('column-selector-container'),
+            results: document.getElementById('results-section'),
+            modal: document.getElementById('adjustments-modal'),
+            modalForm: document.getElementById('modal-form-view'),
+            modalConfirm: document.getElementById('modal-confirm-view'),
+            filenameDisplay: document.getElementById('report-filename'),
+            dateRangeDisplay: document.getElementById('report-daterange')
+        };
+
+        // Display Elements
+        const display = {
+            salesIncl: document.getElementById('disp-sales-incl'),
+            vat: document.getElementById('disp-vat'),
+            taxRate: document.getElementById('disp-tax-rate'),
+            refunds: document.getElementById('disp-refunds'),
+            discounts: document.getElementById('disp-discounts'),
+            payments: document.getElementById('disp-payments'),
+            salesExcl: document.getElementById('disp-sales-excl'),
+            costSales: document.getElementById('disp-cost-sales'),
+            grossProfit: document.getElementById('disp-gross-profit'),
+            gpPercent: document.getElementById('disp-gp-percent')
+        };
+
+        // --- Event Listeners ---
+        sections.dropZone.addEventListener('click', () => inputs.file.click());
+        sections.dropZone.addEventListener('dragover', (e) => { e.preventDefault(); sections.dropZone.classList.add('drag-active'); });
+        sections.dropZone.addEventListener('dragleave', () => sections.dropZone.classList.remove('drag-active'));
+        sections.dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            sections.dropZone.classList.remove('drag-active');
+            if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+        });
+        inputs.file.addEventListener('change', (e) => {
+            if (e.target.files.length) handleFile(e.target.files[0]);
+        });
+
+        // Submit Logic (Final Confirmation)
+        inputs.modalSubmitBtn.addEventListener('click', () => {
+            calculateFinalResults();
+            sections.modal.classList.add('hidden');
+            sections.results.classList.remove('hidden');
+            setTimeout(() => {
+                sections.results.scrollIntoView({ behavior: 'smooth' });
+            }, 100);
+        });
+
+        // --- View Logic for Modal ---
+        function openAdjustments() {
+            calculateBaseSums();
+            hideConfirmation(); // Reset to form view
+            sections.modal.classList.remove('hidden');
+        }
+
+        function showConfirmation() {
+            sections.modalForm.classList.add('hidden');
+            sections.modalConfirm.classList.remove('hidden');
+        }
+
+        function hideConfirmation() {
+            sections.modalConfirm.classList.add('hidden');
+            sections.modalForm.classList.remove('hidden');
+        }
+
+        // --- Core Logic ---
+
+        function handleFile(file) {
+            // Reset Error State
+            inputs.errorMessage.classList.add('hidden');
+            inputs.dropZone.classList.remove('border-red-500', 'bg-red-500/10');
+            
+            fileName = file.name;
+            const reader = new FileReader();
+            reader.readAsArrayBuffer(file);
+            reader.onload = (e) => {
+                const data = new Uint8Array(e.target.result);
+                try {
+                    const workbook = XLSX.read(data, {type: 'array'});
+                    const firstSheet = workbook.SheetNames[0];
+                    const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[firstSheet], {header: 1});
+
+                    if (!jsonData || jsonData.length === 0) {
+                        showError("File appears empty");
+                        return;
+                    }
+
+                    headers = jsonData[0].map(h => (h !== undefined && h !== null) ? String(h).trim() : "");
+                    fileDataRows = jsonData.slice(1);
+
+                    // --- STRICT VALIDATION START ---
+                    const targetSales = "Nett Sales (Incl. Tax)".toLowerCase();
+                    const targetCost = "Sales Costs".toLowerCase();
+                    
+                    const hasSales = headers.some(h => h.toLowerCase() === targetSales);
+                    const hasCosts = headers.some(h => h.toLowerCase() === targetCost);
+
+                    if (!hasSales || !hasCosts) {
+                        showError("Invalid File: Missing 'Nett Sales (Incl. Tax)' or 'Sales Costs' columns.");
+                        return;
+                    }
+                    // --- STRICT VALIDATION END ---
+
+                    populateSelects(fileName);
+                    detectDateRange(); // Attempt to find date range
+                    autoSelectColumns();
+
+                } catch (err) {
+                    console.error(err);
+                    showError("Error parsing file. Please check format.");
+                }
+            };
+        }
+
+        function showError(msg) {
+            inputs.errorText.textContent = msg;
+            inputs.errorMessage.classList.remove('hidden');
+            inputs.dropZone.classList.add('border-red-500', 'bg-red-500/10');
+            // Reset drop content
+            inputs.dropContent.innerHTML = `
+                <div class="text-red-500 flex flex-col items-center">
+                    <i class="fa-solid fa-xmark-circle text-4xl mb-2"></i>
+                    <p class="font-bold">Upload Failed</p>
+                    <p class="text-sm">Try again</p>
+                </div>
+            `;
+        }
+
+        function populateSelects(filename) {
+            const createOpts = () => {
+                let html = '<option value="">-- Select Column --</option>';
+                headers.forEach((h, i) => { 
+                    if(h) html += `<option value="${i}">${h}</option>`; 
+                });
+                return html;
+            };
+            
+            inputs.salesCol.innerHTML = createOpts();
+            inputs.costCol.innerHTML = createOpts();
+            
+            sections.colSelector.classList.remove('hidden');
+            sections.filenameDisplay.textContent = filename;
+            
+            inputs.dropContent.innerHTML = `
+                <div class="text-[#00AEEF]">
+                    <i class="fa-solid fa-circle-check text-4xl mb-3"></i>
+                    <p class="font-bold text-white text-lg">File Loaded</p>
+                    <p class="text-sm text-gray-500">${filename}</p>
+                </div>`;
+            inputs.dropZone.classList.remove('border-dashed');
+            inputs.dropZone.classList.add('border-solid', 'border-[#00AEEF]', 'bg-[#00AEEF]/5');
+        }
+
+        function detectDateRange() {
+            // Try to find a Date column
+            let dateColIndex = -1;
+            const potentialDateHeaders = ['date', 'transaction date', 'time', 'period', 'day'];
+            
+            headers.forEach((h, i) => {
+                if (h && potentialDateHeaders.includes(h.toLowerCase())) {
+                    dateColIndex = i;
+                }
+            });
+
+            if (dateColIndex === -1) {
+                dateRangeText = "Date Column Not Found";
+                sections.dateRangeDisplay.textContent = dateRangeText;
+                return;
+            }
+
+            // Iterate and find Min/Max
+            let minDate = null;
+            let maxDate = null;
+
+            fileDataRows.forEach(row => {
+                let cellVal = row[dateColIndex];
+                if (!cellVal) return;
+
+                let dateObj;
+                // Excel often stores dates as numbers (serial)
+                if (typeof cellVal === 'number') {
+                    // Excel epoch correction
+                    dateObj = new Date(Math.UTC(1899, 11, 30) + cellVal * 24 * 60 * 60 * 1000);
+                } else {
+                    dateObj = new Date(cellVal);
+                }
+
+                if (!isNaN(dateObj.getTime())) {
+                    if (!minDate || dateObj < minDate) minDate = dateObj;
+                    if (!maxDate || dateObj > maxDate) maxDate = dateObj;
+                }
+            });
+
+            if (minDate && maxDate) {
+                const opts = { year: 'numeric', month: 'short', day: 'numeric' };
+                dateRangeText = `${minDate.toLocaleDateString('en-ZA', opts)} - ${maxDate.toLocaleDateString('en-ZA', opts)}`;
+            } else {
+                dateRangeText = "Could not parse dates";
+            }
+            sections.dateRangeDisplay.textContent = dateRangeText;
+        }
+
+        function autoSelectColumns() {
+            const targetSales = "Nett Sales (Incl. Tax)";
+            const targetCost = "Sales Costs";
+
+            headers.forEach((header, index) => {
+                if (header.toLowerCase() === targetSales.toLowerCase()) {
+                    inputs.salesCol.value = index;
+                    document.getElementById('auto-match-sales').style.display = 'inline-block';
+                }
+                if (header.toLowerCase() === targetCost.toLowerCase()) {
+                    inputs.costCol.value = index;
+                    document.getElementById('auto-match-cost').style.display = 'inline-block';
+                }
+            });
+            checkAndTriggerModal();
+        }
+
+        function checkAndTriggerModal() {
+            const salesIdx = inputs.salesCol.value;
+            const costIdx = inputs.costCol.value;
+            if (salesIdx !== "" && costIdx !== "") {
+                openAdjustments();
+            }
+        }
+
+        function cleanNumber(val) {
+            if (val === null || val === undefined) return 0;
+            if (typeof val === 'number') return val;
+            const cleaned = val.toString().replace(/[^0-9.-]/g, '');
+            return parseFloat(cleaned) || 0;
+        }
+
+        function calculateBaseSums() {
+            totalSalesIncl = 0;
+            totalCostOfSales = 0;
+            const salesIdx = inputs.salesCol.value;
+            const costIdx = inputs.costCol.value;
+            if (salesIdx !== "") fileDataRows.forEach(row => totalSalesIncl += cleanNumber(row[salesIdx]));
+            if (costIdx !== "") fileDataRows.forEach(row => totalCostOfSales += cleanNumber(row[costIdx]));
+        }
+
+        function calculateFinalResults() {
+            const rate = parseFloat(inputs.taxRate.value) || 0;
+            const refunds = parseFloat(inputs.refunds.value) || 0;
+            const discounts = parseFloat(inputs.discounts.value) || 0;
+            const payments = parseFloat(inputs.payments.value) || 0;
+
+            const taxAmount = totalSalesIncl - (totalSalesIncl / (1 + (rate / 100)));
+            const netSalesExcl = totalSalesIncl - taxAmount - refunds - discounts - payments;
+            const grossProfit = netSalesExcl - totalCostOfSales;
+            let gpPercent = 0;
+            if (netSalesExcl !== 0) gpPercent = (grossProfit / netSalesExcl) * 100;
+
+            const fmt = (n) => new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR' }).format(n);
+
+            display.salesIncl.textContent = fmt(totalSalesIncl);
+            display.taxRate.textContent = rate;
+            display.vat.textContent = fmt(taxAmount);
+            display.refunds.textContent = fmt(refunds);
+            display.discounts.textContent = fmt(discounts);
+            display.payments.textContent = fmt(payments);
+            display.salesExcl.textContent = fmt(netSalesExcl);
+            display.costSales.textContent = fmt(totalCostOfSales);
+            display.grossProfit.textContent = fmt(grossProfit);
+            display.gpPercent.textContent = gpPercent.toFixed(1);
+
+            const gpElement = display.grossProfit;
+            const gpPercentElement = display.gpPercent;
+            
+            if (grossProfit < 0) {
+                gpElement.classList.remove('text-white');
+                gpElement.classList.add('text-red-500');
+                gpPercentElement.classList.remove('text-[#00AEEF]');
+                gpPercentElement.classList.add('text-red-500');
+            } else {
+                gpElement.classList.add('text-white');
+                gpElement.classList.remove('text-red-500');
+                gpPercentElement.classList.add('text-[#00AEEF]');
+                gpPercentElement.classList.remove('text-red-500');
+            }
+        }
+
+        function exportToExcel() {
+            const rate = parseFloat(inputs.taxRate.value) || 0;
+            const refunds = parseFloat(inputs.refunds.value) || 0;
+            const discounts = parseFloat(inputs.discounts.value) || 0;
+            const payments = parseFloat(inputs.payments.value) || 0;
+            const taxAmount = totalSalesIncl - (totalSalesIncl / (1 + (rate / 100)));
+            const netSalesExcl = totalSalesIncl - taxAmount - refunds - discounts - payments;
+            const grossProfit = netSalesExcl - totalCostOfSales;
+            let gpPercent = 0;
+            if (netSalesExcl !== 0) gpPercent = (grossProfit / netSalesExcl) * 100;
+
+            // Sheet 1: Report
+            const data = [
+                ["Financial Profit Report", ""],
+                ["File Name", fileName],
+                ["Generated On", new Date().toLocaleString()],
+                [],
+                ["Metric", "Value (ZAR)"],
+                ["Nett Sales (Incl. Tax)", totalSalesIncl],
+                ["VAT Rate", rate + "%"],
+                ["VAT Amount", taxAmount],
+                ["Refunds", refunds],
+                ["Discounts", discounts],
+                ["Net Excl. Payments", payments],
+                ["Nett Sales (Excl. Tax)", netSalesExcl],
+                ["Cost of Sales", totalCostOfSales],
+                ["Gross Profit", grossProfit],
+                ["GP Margin", gpPercent.toFixed(2) + "%"]
+            ];
+
+            const ws = XLSX.utils.aoa_to_sheet(data);
+            const wscols = [{wch: 25}, {wch: 35}];
+            ws['!cols'] = wscols;
+
+            // Sheet 2: Visual Data (Graph Ready)
+            const graphData = [
+                ["Category", "Amount (ZAR)", "Visual Scale (Text)"],
+                ["Nett Sales (Excl. Tax)", netSalesExcl, getBar(netSalesExcl, totalSalesIncl)],
+                ["Cost of Sales", totalCostOfSales, getBar(totalCostOfSales, totalSalesIncl)],
+                ["Gross Profit", grossProfit, getBar(grossProfit, totalSalesIncl)],
+                ["VAT", taxAmount, getBar(taxAmount, totalSalesIncl)],
+                ["Refunds", refunds, getBar(refunds, totalSalesIncl)]
+            ];
+            
+            const wsGraph = XLSX.utils.aoa_to_sheet(graphData);
+            const wsGraphCols = [{wch: 25}, {wch: 15}, {wch: 50}];
+            wsGraph['!cols'] = wsGraphCols;
+
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Profit Report");
+            XLSX.utils.book_append_sheet(wb, wsGraph, "Visual Breakdown");
+
+            XLSX.writeFile(wb, "Yoco_Profit_Report.xlsx");
+        }
+
+        // Helper to generate simple ascii bar charts
+        function getBar(val, max) {
+            if(!max || max === 0) return "";
+            // Use 50 chars as max width
+            const width = 50;
+            // Prevent negative bars from breaking repeat
+            const len = Math.max(0, Math.floor((val / max) * width));
+            return "█".repeat(len);
+        }
+    </script>
+</body>
+</html>
