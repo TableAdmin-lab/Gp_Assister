@@ -174,7 +174,7 @@
                     <div class="p-5 bg-[#1a1a1a] border border-gray-800 rounded-xl opacity-50 pointer-events-none">
                         <div class="flex items-center justify-between mb-3">
                             <label class="block text-sm font-bold text-white">
-                                Nett Sales (Incl. Tax)
+                                Nett Sales (Incl. Tax / VAT)
                             </label>
                             <span class="text-xs text-[#00AEEF] bg-[#00AEEF]/10 px-2 py-0.5 rounded" id="auto-match-sales" style="display:none;">Auto-matched</span>
                         </div>
@@ -614,14 +614,15 @@
                     fileDataRows = jsonData.slice(1);
 
                     // --- STRICT VALIDATION START ---
-                    const targetSales = "Nett Sales (Incl. Tax)".toLowerCase();
-                    const targetCost = "Sales Costs".toLowerCase();
+                    // Allow both 'Incl. Tax' AND 'Incl. VAT'
+                    const validSalesHeaders = ["nett sales (incl. tax)", "nett sales (incl. vat)"];
+                    const validCostHeaders = ["sales costs"];
                     
-                    const hasSales = headers.some(h => h.toLowerCase() === targetSales);
-                    const hasCosts = headers.some(h => h.toLowerCase() === targetCost);
+                    const hasSales = headers.some(h => validSalesHeaders.includes(h.toLowerCase().trim()));
+                    const hasCosts = headers.some(h => validCostHeaders.includes(h.toLowerCase().trim()));
 
                     if (!hasSales || !hasCosts) {
-                        showError("Invalid File: Missing 'Nett Sales (Incl. Tax)' or 'Sales Costs' columns.");
+                        showError("Invalid File: Missing 'Nett Sales (Incl. Tax/VAT)' or 'Sales Costs' columns.");
                         return;
                     }
                     // --- STRICT VALIDATION END ---
@@ -726,15 +727,16 @@
         }
 
         function autoSelectColumns() {
-            const targetSales = "Nett Sales (Incl. Tax)";
-            const targetCost = "Sales Costs";
+            const validSalesHeaders = ["nett sales (incl. tax)", "nett sales (incl. vat)"];
+            const validCostHeaders = ["sales costs"];
 
             headers.forEach((header, index) => {
-                if (header.toLowerCase() === targetSales.toLowerCase()) {
+                const h = header.toLowerCase().trim();
+                if (validSalesHeaders.includes(h)) {
                     inputs.salesCol.value = index;
                     document.getElementById('auto-match-sales').style.display = 'inline-block';
                 }
-                if (header.toLowerCase() === targetCost.toLowerCase()) {
+                if (validCostHeaders.includes(h)) {
                     inputs.costCol.value = index;
                     document.getElementById('auto-match-cost').style.display = 'inline-block';
                 }
