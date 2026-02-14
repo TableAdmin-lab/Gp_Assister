@@ -237,30 +237,32 @@
                     <span class="font-mono font-bold text-2xl text-white" id="disp-sales-incl">R 0.00</span>
                 </div>
 
-                <!-- 2. Less VAT -->
-                <div class="flex justify-between items-center text-sm text-red-400 font-medium">
-                    <div class="flex items-center">
-                        <span class="flex items-center"><i class="fa-solid fa-minus w-3 mr-2 opacity-50"></i> VAT (<span id="disp-tax-rate">15</span>%)</span>
+                <!-- 2. Discounts (Moved Up) -->
+                <div class="flex justify-between items-center text-sm text-orange-400 font-medium">
+                    <span class="flex items-center">
+                        - Discounts
                         <div class="tooltip-trigger ml-2">
-                            <i class="fa-solid fa-circle-info text-xs"></i>
-                            <div class="tooltip-content">Calculated VAT based on the inclusive total using the rate provided.</div>
+                            <i class="fa-solid fa-circle-info text-xs opacity-50"></i>
+                            <div class="tooltip-content">Deducted BEFORE VAT calculation.</div>
                         </div>
-                    </div>
-                    <span class="font-mono" id="disp-vat">R 0.00</span>
+                    </span>
+                    <span class="font-mono font-medium" id="disp-discounts">R 0.00</span>
                 </div>
 
-                <!-- 3. Less Deductions -->
-                <div class="pl-5 border-l-2 border-gray-800 space-y-3">
-                    <div class="flex justify-between items-center text-sm text-orange-400">
-                         <span class="flex items-center">
-                            - Discounts
+                <!-- 3. Less VAT -->
+                <div class="pl-5 border-l-2 border-gray-800 mt-3 space-y-3">
+                    <div class="flex justify-between items-center text-sm text-red-400 font-medium">
+                        <div class="flex items-center">
+                            <span class="flex items-center"><i class="fa-solid fa-minus w-3 mr-2 opacity-50"></i> VAT (<span id="disp-tax-rate">15</span>%)</span>
                             <div class="tooltip-trigger ml-2">
-                                <i class="fa-solid fa-circle-info text-xs opacity-50"></i>
-                                <div class="tooltip-content">Total value of discounts given.</div>
+                                <i class="fa-solid fa-circle-info text-xs"></i>
+                                <div class="tooltip-content">Calculated on (Sales - Discounts).</div>
                             </div>
-                        </span>
-                        <span class="font-mono font-medium" id="disp-discounts">R 0.00</span>
+                        </div>
+                        <span class="font-mono" id="disp-vat">R 0.00</span>
                     </div>
+
+                    <!-- Net Excl Payments -->
                     <div class="flex justify-between items-center text-sm text-orange-400">
                          <span class="flex items-center">
                             - Net Excl. Payments
@@ -274,12 +276,12 @@
                 </div>
 
                 <!-- 4. Result: Net Sales Excl Tax -->
-                <div class="py-5 border-t border-dashed border-gray-600 flex justify-between items-center">
+                <div class="py-5 border-t border-dashed border-gray-600 flex justify-between items-center mt-3">
                     <div class="flex items-center">
                         <span class="text-white font-bold text-xl">Nett Sales (Excl. Tax)</span>
                         <div class="tooltip-trigger ml-2">
                             <i class="fa-solid fa-circle-info text-sm text-gray-500"></i>
-                            <div class="tooltip-content">Real revenue after VAT and all adjustments are removed.</div>
+                            <div class="tooltip-content">(Sales - Discounts) - VAT - Excl. Payments</div>
                         </div>
                     </div>
                     <span class="font-mono font-bold text-2xl text-white" id="disp-sales-excl">R 0.00</span>
@@ -329,6 +331,31 @@
                             <canvas id="profitChart"></canvas>
                         </div>
                     </div>
+                </div>
+
+                 <!-- Explanation Section -->
+                 <div class="bg-[#1a1a1a] border-t border-gray-800 p-6 mt-6 rounded-lg">
+                    <details class="group">
+                        <summary class="flex items-center cursor-pointer text-gray-500 hover:text-[#00AEEF] text-sm font-medium transition">
+                            <i class="fa-solid fa-circle-question mr-2"></i> How is Gross Profit calculated?
+                            <span class="ml-auto transform group-open:rotate-180 transition-transform">
+                                <i class="fa-solid fa-chevron-down"></i>
+                            </span>
+                        </summary>
+                        <div class="mt-4 text-gray-400 text-xs space-y-2 border-l-2 border-[#00AEEF] pl-4">
+                            <p><strong class="text-white">1. Adjusted Sales Base:</strong><br> 
+                            <code>Nett Sales (Incl. Tax) - Discounts</code></p>
+                            
+                            <p><strong class="text-white">2. VAT Extraction:</strong><br>
+                            <code>VAT = Adjusted Sales Base - (Adjusted Sales Base / (1 + TaxRate/100))</code></p>
+                            
+                            <p><strong class="text-white">3. Nett Sales (Excl. Tax):</strong><br>
+                            <code>Adjusted Sales Base - VAT - Net Excl. Payments</code></p>
+
+                            <p><strong class="text-white">4. Gross Profit:</strong><br>
+                            <code>Nett Sales (Excl. Tax) - Sales Costs</code></p>
+                        </div>
+                    </details>
                 </div>
 
             </div>
@@ -773,9 +800,10 @@
             const discounts = parseFloat(inputs.discounts.value) || 0;
             const payments = parseFloat(inputs.payments.value) || 0;
 
-            const taxAmount = totalSalesIncl - (totalSalesIncl / (1 + (rate / 100)));
-            // Refunds are completely excluded from calculation per user request
-            const netSalesExcl = totalSalesIncl - taxAmount - discounts - payments;
+            const salesLessDiscount = totalSalesIncl - discounts;
+            const taxAmount = salesLessDiscount - (salesLessDiscount / (1 + (rate / 100)));
+            const netSalesExcl = salesLessDiscount - taxAmount - payments;
+            
             const grossProfit = netSalesExcl - totalCostOfSales;
             let gpPercent = 0;
             if (netSalesExcl !== 0) gpPercent = (grossProfit / netSalesExcl) * 100;
@@ -852,8 +880,11 @@
             const rate = parseFloat(inputs.taxRate.value) || 0;
             const discounts = parseFloat(inputs.discounts.value) || 0;
             const payments = parseFloat(inputs.payments.value) || 0;
-            const taxAmount = totalSalesIncl - (totalSalesIncl / (1 + (rate / 100)));
-            const netSalesExcl = totalSalesIncl - taxAmount - discounts - payments;
+            
+            const salesLessDiscount = totalSalesIncl - discounts;
+            const taxAmount = salesLessDiscount - (salesLessDiscount / (1 + (rate / 100)));
+            const netSalesExcl = salesLessDiscount - taxAmount - payments;
+            
             const grossProfit = netSalesExcl - totalCostOfSales;
             let gpPercent = 0;
             if (netSalesExcl !== 0) gpPercent = (grossProfit / netSalesExcl) * 100;
@@ -865,10 +896,10 @@
                 ["Generated On", new Date().toLocaleString()],
                 [],
                 ["Metric", "Value (ZAR)"],
-                ["Nett Sales (Incl. Tax)", totalSalesIncl],
+                ["Nett Sales (Incl. Tax / VAT)", totalSalesIncl],
+                ["Discounts", discounts],
                 ["VAT Rate", rate + "%"],
                 ["VAT Amount", taxAmount],
-                ["Discounts", discounts],
                 ["Net Excl. Payments", payments],
                 ["Nett Sales (Excl. Tax)", netSalesExcl],
                 ["Cost of Sales", totalCostOfSales],
